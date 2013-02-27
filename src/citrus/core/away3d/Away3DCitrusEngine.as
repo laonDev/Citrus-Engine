@@ -6,6 +6,7 @@ package citrus.core.away3d {
 	import away3d.debug.AwayStats;
 
 	import citrus.core.CitrusEngine;
+	import citrus.core.State;
 
 	import flash.display.DisplayObject;
 	import flash.events.Event;
@@ -22,7 +23,11 @@ package citrus.core.away3d {
 		public function Away3DCitrusEngine() {
 			
 			super();
-			
+		}
+		
+		override protected function handleAddedToStage(e:Event):void 
+		{
+			super.handleAddedToStage(e);
 			stage.addEventListener(Event.RESIZE, _onResize);
 		}
 
@@ -74,25 +79,37 @@ package citrus.core.away3d {
 				if (_away3D.scene) {
 					
 					if (_state) {
-
-						_state.destroy();
-						_away3D.scene.removeChild(_state as Away3DState);
 						
-						// Remove Box2D or Nape debug view
-						var debugView:DisplayObject = stage.getChildByName("debug view");
-						if (debugView)
-							stage.removeChild(debugView);
+						if (_state is Away3DState) {
+							
+							_state.destroy();
+							_away3D.scene.removeChild(_state as Away3DState);
+							
+							// Remove Box2D or Nape debug view
+							var debugView:DisplayObject = stage.getChildByName("debug view");
+							if (debugView)
+								stage.removeChild(debugView);
+								
+						} else {
+							
+							_state.destroy();
+							removeChild(_state as State);
+						}
 					}
-					_state = _newState;
-					_newState = null;
 					
-					_away3D.scene.addChild(_state as Away3DState);
-					_state.initialize();
+					if (_newState is Away3DState) {
+						
+						_state = _newState;
+						_newState = null;
+						
+						_away3D.scene.addChild(_state as Away3DState);
+						_state.initialize();
+					}
 				}
 
 			}
 			
-			if (_state && _playing)
+			if (_state && _playing && _state is Away3DState)
 				_away3D.render();
 				
 			super.handleEnterFrame(e);

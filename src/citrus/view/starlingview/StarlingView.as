@@ -3,8 +3,7 @@ package citrus.view.starlingview {
 	import citrus.physics.APhysicsEngine;
 	import citrus.view.ACitrusView;
 	import citrus.view.ISpriteView;
-	import citrus.view.SpriteDebugArt;
-	import citrus.view.StarlingSpriteDebugArt;
+	import citrus.view.spriteview.SpriteDebugArt;
 
 	import starling.display.Sprite;
 
@@ -22,6 +21,8 @@ package citrus.view.starlingview {
 		public function StarlingView(root:Sprite) {
 
 			super(root, ISpriteView);
+			
+			root.alpha = 0.999; // Starling's simple trick to avoid the state changes.
 
 			_viewRoot = new Sprite();
 			root.addChild(_viewRoot);
@@ -86,12 +87,18 @@ package citrus.view.starlingview {
 		}
 
 		private function updateGroupForSprite(sprite:StarlingArt):void {
+			
+			if (sprite.citrusObject.group > _viewRoot.numChildren + 100)
+				trace("the group property value of " + sprite.citrusObject + ":" + sprite.citrusObject.group + " is higher than +100 to the current max group value (" + _viewRoot.numChildren + ") and may perform a crash");
+			
 			// Create the container sprite (group) if it has not been created yet.
-			while (sprite.group >= _viewRoot.numChildren)
+			while (sprite.citrusObject.group >= _viewRoot.numChildren)
 				_viewRoot.addChild(new Sprite());
-
+			
 			// Add the sprite to the appropriate group
-			Sprite(_viewRoot.getChildAt(sprite.group)).addChild(sprite);
+			Sprite(_viewRoot.getChildAt(sprite.citrusObject.group)).addChild(sprite);
+			
+			// The sprite.group will be updated in the update method like all its other values. This function is called after the updateGroupForSprite method.
 		}
 	}
 }

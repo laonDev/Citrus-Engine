@@ -1,10 +1,59 @@
-V 3.1.2, Work In Progress
+V 3.1.4, 02 27 2013
 -------------------------
+- Renamed AVirtualButtons and VirtualButtons classes into AVirtualButton and VirtualButton. Yes, they just add one button now. Easier to add many ;)
+- Added Starling's simple trick to avoid the state changes (alpha 0.999).
+- StarlingCitrusEngine and Away3DCitrusEngine accepts State, useful to display quickly a state with graphics from a swf, ect.
+- States classes have a new method killAllObjects(...except). The _objects variable has also a getter.
+- States classes have a protected variable _ce which refers to the Citrus Engine.
+- Nape's Hero has a static friction removed when the player move, and set when it stops moving (to prevent sliding).
+- ObjectMakerStarling has a FromMovieClip function. The second argument is the TextureAtlas. Objects made in Flash Pro can use a texture name for their view.
+- Added Panning to SoundManager
+- Added a camera lens parameter to view.camera.setUp function.
+- Added zoomFit() to StarlingCamera and SpriteCamera
+- Added a get function command for the console
+- Added a trace to inform if we create a group with a high value
+- view.camera.setUp returns the instance of the ACitrusCamera.
+- StarlingArt doesn't generate mipmaps if view is a Bitmap.
+- Added Crate object to Nape.
+- Added a UI package for inventory and lifebar.
+- Added a Path class which is a set of points (MathVector) that can be used with the MovingPlatform.
+- Added Nape version of the Moving Platform managing also a Path if it's specified.
+- Added line equation to MathUtils.
+- Added linear interpolation function to MathUtils.
+- Added Tools class with a print_r function to display objects and arrays content.
+- Improved the Timer's cannon: it is paused if the CE is not playing.
+- Added a Bridge, Rope and Pool objects, into the new objects.complex.box2dstarling package.
+- Added a Multiply2 function into Box2DUtils.
+
+V 3.1.3, 01 24 2013
+-------------------
+- new Camera system ready! you don't call anymore view.setupCamera function, now it is view.camera.setUp
+- input uses its own update loop using Event.FRAME_CONSTRUCTED.
+- fixed tiled map parser's problem where the layer index might be wrong.
+- fixed a bug in Keyboard's input where some actions weren't performed.
+- fixed Starling VirtualButtons and VirtualJoystick 's destroy method.
+- fixed a problem with parallax when zooming.
+- fixed a bug where Nape Missile's angle wasn't in radian.
+- Nape's Hero no longer has a static friction.
+- fixed Nape's Hero was able if the collisionAngle was really close to 0.
+- moved SpriteDebugArt and StarlingSpriteDebugArt into their respective package.
+- SpriteArt/StarlingArt/Away3DArt content property becomes private with a getter. It should only be set internally.
+
+V 3.1.2, 01 17 2013
+-------------------
+- improved physics performance removing the update call to the debug view if it isn't visible.
 - outsourced camera stuff into a ACitrusCamera class and one camera by view : BlittingCamera, SpriteCamera, StarlingCamera and Away3DCamera2D.
 - renamed CitrusView into ACitrusView class.
 - addSound method has now two arguments : the id (String) and the sound (*, String or Class).
+- added CitrusGroup class to group different kind of objects.
 - added createAABB method in MathUtils package.
+- added CollisionGetObjectByType into Box2DUtils and NapeUtils.
+- added getObjectsByName method.
+- added a fla with Citrus objects components to create quickly objects using Flash Pro as a level editor.
 - you can change physics step thanks to their public var.
+- updated on Starling 1.3.
+- fixed a bug where the group property wasn't updated using Away3DView, SpriteView and StarlingView.
+- fixed on StarlingArt, the object's view changed but animation doesn't update on the new view.
 
 V 3.1.1, 12 20 2012
 -------------------

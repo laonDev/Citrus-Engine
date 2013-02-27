@@ -33,11 +33,13 @@ package citrus.physics.awayphysics {
 		}
 		
 		public function update():void {
-			debugDrawer.debugDrawWorld();
+			
+			if (_awayPhysics.visible)
+				debugDrawer.debugDrawWorld();
 		}
 		
-		public function debugMode(mode:uint):void {
-			debugDrawer.debugMode = mode;
+		public function debugMode(flags:uint):void {
+			debugDrawer.debugMode = flags;
 		}
 	}
 }

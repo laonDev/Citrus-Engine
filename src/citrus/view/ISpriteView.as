@@ -71,7 +71,7 @@ package citrus.view
 		 * Note that groups and parallax are unrelated, so be careful not to have an object have a lower parallax value than an object 
 		 * in a group below it.
 		 */
-		function get group():Number;
+		function get group():uint;
 		
 		/**
 		 * The visibility of the object. 
@@ -93,8 +93,7 @@ package citrus.view
 		 * are hardcoding your graphic class, you can simply pass a direct reference to the class.
 		 * Whichever way you specify your class, your class must be (on some level) a <code>DisplayObject</code>.</p>
 		 * 
-		 * <p>Also note that you CANNOT assign the <code>view</code> property to a display object that you made. You must specify either an 
-		 * external URL or a Class.</p>
+		 * <p>You can specify your <code>view</code> as an instance of a display object depending of your view renderer.</p>
 		 * 
 		 * <p>If you are using a level editor and using the ObjectMaker to batch-create your
 		 * CitrusObjects, you will need to specify the entire classpath in string form and let the factory turn your string
@@ -103,7 +102,7 @@ package citrus.view
 		 * 
 		 * <p>If your graphic is an external file such as a PNG, JPG, or SWF, you can provide the path to the file (either an absolute path,
 		 * or a relative path from your HTML file or SWF). The SpriteView will detect that it is an external file and
-		 * load the file using the ExternalArt class.</p>
+		 * load the file using the LoadManager class.</p>
 		 */
 		function get view():*;
 		

@@ -36,13 +36,15 @@ package citrus.physics.nape {
 		
 		public function update():void
 		{
-			_debugDrawer.clear();
-			_debugDrawer.draw(_nape.space);
-			_debugDrawer.flush();
+			if (_nape.visible) {
+				
+				_debugDrawer.clear();
+				_debugDrawer.draw(_nape.space);
+				_debugDrawer.flush();
+			}
 		}
 		
-		public function debugMode(mode:uint):void {
-			
+		public function debugMode(flags:uint):void {
 		}
 	}
 }

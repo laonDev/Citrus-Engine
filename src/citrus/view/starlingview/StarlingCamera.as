@@ -1,237 +1,483 @@
 package citrus.view.starlingview {
 
+	import citrus.math.MathUtils;
 	import citrus.view.ACitrusCamera;
-	
-	import flash.geom.Matrix;
+
+	import starling.display.Sprite;
+
+	import flash.display.Sprite;
 	import flash.geom.Point;
 	import flash.geom.Rectangle;
 	
-	import citrus.math.MathUtils;
-	
-	import starling.display.Sprite;
-
 	/**
 	 * The Camera for the StarlingView.
-	 * 
-	 *  /!\ STILL UNDER CONSTRUCTION
-	 * 
-	 * doesn't work with rotation yet, only zoom.
-	 * 
-	 * todos: 
-	 * - fix zooming + easing unatural/ugly movement
-	 * - introduce rotation correctly (using aabb for bound collision detection). (we're on the right path for that.)
-	 * - functions for zooming and other cool functions for camera manipulation
+	 *
+	 * TODO LIST (to do after validation)
+	 * - more optimization needed.
+	 * - port directly to SpriteCamera (no difference)
+	 * - take care of Starling's content scale factor for different devices (should need to affect _camProxy.scale maybe)
+	 * - needs room for camera effects such as shaking. (which can currently be achieved by shaking the ghostTarget point
+	 * internally, or setting a manualPosition externally and shake it... both seem like dodgy approaches though.)
 	 */
-	public class StarlingCamera extends ACitrusCamera {
+	public class StarlingCamera extends ACitrusCamera
+	{
 		
-		/**
-		 * _cameraLens is the camera position relative to the target's coordinate system.
-		 * camera Lens's rect will also be scaled according to the zoom factor.
-		 * it holds the current zoom and rotation (seperately from _zoom and _rotation) for easing.
-		 */
-		protected var _cameraLens:Object = { rect:null,zoom:1,rotation:0 };
-		
-		protected var _zoomEasing:Number = 0.03;
-		
-		/**
-		 * _aabb holds the axis aligned bounding box of the camera in rect
-		 * and its relative position to it (with offsetX and offsetY)
-		 */
-		protected var _aabbData:Object = {};
-		protected var _rotation:Number = 0;
-		protected var _zoom:Number = 1;
-		
-		public function StarlingCamera (viewRoot:Sprite) {
+		public function StarlingCamera(viewRoot:starling.display.Sprite)
+		{
 			super(viewRoot);
+		}
+		
+		override protected function initialize():void {
+			super.initialize();// setup camera lens normally
 			
-			_cameraLens.rect = new Rectangle(0, 0, cameraLensWidth, cameraLensHeight);
-			_aabbData = MathUtils.createAABBData(_cameraLens.rect.x, _cameraLens.rect.y, _cameraLens.rect.width/_cameraLens.zoom, _cameraLens.rect.height/_cameraLens.zoom, _cameraLens.rotation);
+			/*fix for different starling content scale factors. but super has already calculated cameraLensWidth and Height
+			so might need to be applied in a different way.
+			var ce:CitrusEngine = CitrusEngine.getInstance();
+			cameraLensWidth = ce.stage.stageWidth / Starling.contentScaleFactor;
+			cameraLensHeight = ce.stage.stageHeight / Starling.contentScaleFactor;*/
+			
+			_aabbData = MathUtils.createAABBData(0, 0, cameraLensWidth / _camProxy.scale, cameraLensHeight / _camProxy.scale, _camProxy.rotation);
 		}
 		
-		// cameraLens should be read only.
-		public function get cameraLens():Object
+		/**
+		 * multiplies the targeted zoom value by factor.
+		 * @param	factor
+		 */
+		override public function zoom(factor:Number):void
 		{
-			return _cameraLens;
+			if (_allowZoom)
+				_zoom *= factor;
+			else
+				throw(new Error(this+" is not allowed to zoom. please set allowZoom to true."));
 		}
 		
-		public function set rotation(val:Number):void
+		override public function zoomFit(width:Number,height:Number):void
 		{
-			_rotation = val;
+			if (_allowZoom)
+			{
+				var ratioX:Number =  width/cameraLensWidth;
+				var ratioY:Number = height/cameraLensHeight;
+				_zoom = 1/( (ratioX >= ratioY) ? ratioY : ratioX );
+			}
+			else
+				throw(new Error(this+" is not allowed to zoom. please set allowZoom to true."));
 		}
 		
-		public function get rotation():Number
+		/**
+		 * rotates the camera by the angle.
+		 * adds angle to targeted rotation value.
+		 * @param	angle in radians.
+		 */
+		override public function rotate(angle:Number):void
 		{
-			return _rotation;
+			if (_allowRotation)
+				_rotation += angle;
+			else
+				throw(new Error(this+" is not allowed to rotate. please set allowRotation to true."));
 		}
 		
-		//these are not useful at the moment
-		public function set zoom(val:Number):void
+		/**
+		 * sets the targeted rotation value to angle.
+		 * @param	angle in radians.
+		 */
+		override public function setRotation(angle:Number):void
 		{
-			_zoom = val;
+			if (_allowRotation)
+				_rotation = angle;
+			else
+				throw(new Error(this+" is not allowed to rotate. please set allowRotation to true."));
 		}
 		
-		public function get zoom():Number
+		/**
+		 * sets the targeted zoom value to factor.
+		 * @param	factor
+		 */
+		override public function setZoom(factor:Number):void
+		{
+			if (_allowZoom)
+				_zoom = factor;
+			else
+				throw(new Error(this+" is not allowed to zoom. please set allowZoom to true."));
+		}
+		
+		override public function getZoom():Number
 		{
 			return _zoom;
 		}
 		
-		public function resetAABBData():void
+		override public function getRotation():Number
 		{
-			_aabbData = MathUtils.createAABBData(_cameraLens.rect.x, _cameraLens.rect.y, _cameraLens.rect.width, _cameraLens.rect.height, _cameraLens.rotation);
+			return _rotation;
 		}
 		
-		override public function update():void {
-			
-			//ease zoom and rotation first. zoom is the last modifier we need
-			
-			var diffRot:Number = _rotation - _cameraLens.rotation;
-			var velocityRot:Number = diffRot * (easing.x+easing.y)/2; //easing factor is temporary.
-			_cameraLens.rotation += velocityRot;
-			
-			var diffZoom:Number = _zoom - _cameraLens.zoom;
-			var velocityZoom:Number = diffZoom * _zoomEasing;
-			_cameraLens.zoom += velocityZoom;
-			
-			/**
-			 * create new _aabbData with new rotation value.
-			 * we will move x and y later on.
-			 */
-			
-			_aabbData = MathUtils.createAABBData(0, 0, _cameraLens.rect.width, _cameraLens.rect.height, _cameraLens.rotation);
-		
-			/**
-			 * rotate offset.
-			 * we want the target to be at this position(x axis is similar to y axis) :
-			 * ( _aabbData.rect.x + _aabbData.offsetX + rotatedOffset.x ) / _cameraLens.zoom
-			 * (which in case of offset being the center of the camera,
-			 * would be the center of the camera projected to the state's coordinate.)
-			 */
-			
-			var rotatedOffset:Point = rotatePoint(new Point(0,0), new Point(offset.x, offset.y), - _cameraLens.rotation);
-			
-			/**
-			 * bounds collision check and limit zoom.
-			 * notes:
-			 * - Zoom : we will check against ratio between _aabbData.rect and bounds width.
-			 * if _aabbData is too big for the bounds, then we use this ratio to "scale down" the actual zoom
-			 * since camera size and its aabb are proportional.
-			 * - bounds : again we will be checking a collision of the bounds with _aabbData.rect 
-			 * since camera is possibly rotated.
-			 */
-			
-			if (bounds) {
-				var lwratio:Number = _aabbData.rect.width / bounds.width;
-				var lhratio:Number = _aabbData.rect.height / bounds.height;
-				
-				if ( _aabbData.rect.width > bounds.width * _cameraLens.zoom)
-					_cameraLens.zoom = lwratio;
-				else if (_aabbData.rect.height > bounds.height * _cameraLens.zoom)
-					_cameraLens.zoom = lhratio;
+		/**
+		 * Recreates the AABB of the camera.
+		 * will use Math.Utils.createAABBData when allowRotation = true.
+		 */
+		public function resetAABBData():void
+		{
+			if (!_allowZoom && !_allowRotation)
+			{
+				_aabbData.offsetX = _aabbData.offsetY = 0;
+				_aabbData.rect = new Rectangle(_ghostTarget.x, _ghostTarget.y, cameraLensWidth, cameraLensHeight);
+				return;
 			}
 			
-			//follow target position.
-			
-			if (target)
+			if (_allowZoom && !_allowRotation)
 			{
-				var diffX:Number = (target.x * _cameraLens.zoom - rotatedOffset.x) - _cameraLens.rect.x - _aabbData.offsetX;
-				var diffY:Number = (target.y * _cameraLens.zoom - rotatedOffset.y) - _cameraLens.rect.y - _aabbData.offsetY;
+				_aabbData.offsetX = _aabbData.offsetY = 0;
+				_aabbData.rect = new Rectangle(_ghostTarget.x, _ghostTarget.y, cameraLensWidth / _camProxy.scale, cameraLensHeight / _camProxy.scale);
+				return;
+			}
+			
+			if (_allowRotation && _allowZoom)
+			{
+				_aabbData = MathUtils.createAABBData(_ghostTarget.x , _ghostTarget.y, cameraLensWidth / _camProxy.scale, cameraLensHeight / _camProxy.scale, - _camProxy.rotation);
+				return;
+			}
+		
+			if (!_allowZoom && _allowRotation)
+			{
+				_aabbData = MathUtils.createAABBData(_ghostTarget.x , _ghostTarget.y, cameraLensWidth, cameraLensHeight, - _camProxy.rotation);
+				return;
+			}
+		}
+		
+		override public function update():void
+		{
+			if (_allowRotation)
+			{
+				var diffRot:Number = _rotation - _camProxy.rotation;
+				var velocityRot:Number = diffRot * rotationEasing;
+				_camProxy.rotation += velocityRot;
+			}
+			
+			if (_allowZoom)
+			{
+				var diffZoom:Number = _zoom - _camProxy.scale;
+				var velocityZoom:Number = diffZoom * zoomEasing;
+				_camProxy.scale += velocityZoom;
+			}
+			
+			var invRotTarget:Point;
+			
+			if (_target)
+			{
+				_targetPos.x = _target.x;
+				_targetPos.y = _target.y;
+				
+				var diffX:Number = _targetPos.x - _ghostTarget.x;
+				var diffY:Number = _targetPos.y - _ghostTarget.y;
 				var velocityX:Number = diffX * easing.x;
 				var velocityY:Number = diffY * easing.y;
 				
-				_cameraLens.rect.x += velocityX;
-				_cameraLens.rect.y += velocityY;
-			}
-			
-			// move aabb rect with us;
-			_aabbData.rect.x = _cameraLens.rect.x;
-			_aabbData.rect.y = _cameraLens.rect.y
-			
-			if (bounds) {
+				_ghostTarget.x += velocityX;
+				_ghostTarget.y += velocityY;
 				
-				if ( _aabbData.rect.x <= bounds.left * _cameraLens.zoom || bounds.width * _cameraLens.zoom < _aabbData.rect.width)
-					_cameraLens.rect.x = bounds.left * _cameraLens.zoom - _aabbData.offsetX ;
-				else if ( _aabbData.rect.x >= bounds.right * _cameraLens.zoom - _aabbData.rect.width)
-					_cameraLens.rect.x = bounds.right * _cameraLens.zoom - _cameraLens.rect.width + _aabbData.offsetX ;
-					
-				if ( _aabbData.rect.y <= bounds.top * _cameraLens.zoom || bounds.height < _aabbData.rect.height )
-					_cameraLens.rect.y = bounds.top * _cameraLens.zoom - _aabbData.offsetY ;
-				else if ( _aabbData.rect.y >= bounds.bottom * _cameraLens.zoom - _aabbData.rect.height)
-					_cameraLens.rect.y = bounds.bottom * _cameraLens.zoom - _cameraLens.rect.height + _aabbData.offsetY ;
+			}
+			else if (_manualPosition)
+			{
+				_ghostTarget.x = _manualPosition.x;
+				_ghostTarget.y = _manualPosition.y;
 			}
 			
-			_viewRoot.x =  - _cameraLens.rect.x ;
-			_viewRoot.y =  - _cameraLens.rect.y ;
-			_viewRoot.scaleX = _viewRoot.scaleY = _cameraLens.zoom;
-			_viewRoot.rotation = _cameraLens.rotation;
+			invRotTarget = (_allowRotation) ? MathUtils.rotatePoint(new Point(_ghostTarget.x, _ghostTarget.y), -_camProxy.rotation) : new Point(_ghostTarget.x, _ghostTarget.y);
+				
+			_camProxy.x = -invRotTarget.x * _camProxy.scale;
+			_camProxy.y = -invRotTarget.y * _camProxy.scale;
+			
+			_camProxy.offsetX = offset.x;
+			_camProxy.offsetY = offset.y;
+			
+			_camProxy.x += _camProxy.offsetX;
+			_camProxy.y += _camProxy.offsetY;
+			
+			resetAABBData();
+			
+			if (bounds && _restrictZoom)
+			{
+				var lwratio:Number = _aabbData.rect.width*_camProxy.scale / bounds.width;
+				var lhratio:Number = _aabbData.rect.height*_camProxy.scale / bounds.height;
+				
+				if (_aabbData.rect.width > bounds.width)
+					_camProxy.scale = _zoom = lwratio;
+				else if (_aabbData.rect.height > bounds.height)
+					_camProxy.scale = _zoom = lhratio;
+				
+			}
+			
+			var rotScaledOffset:Point;
+			
+			rotScaledOffset = (_allowRotation) ?
+				MathUtils.rotatePoint( new Point(offset.x / _camProxy.scale, offset.y / _camProxy.scale), _camProxy.rotation) :
+				new Point(offset.x / _camProxy.scale, offset.y / _camProxy.scale);
+			
+			// move aabb
+			_aabbData.rect.x -= rotScaledOffset.x;
+			_aabbData.rect.y -= rotScaledOffset.y;
+			
+			if ( bounds && !bounds.containsRect(_aabbData.rect) )
+			{
+				
+				var newAABBPos:Point = new Point(_aabbData.rect.x,_aabbData.rect.y);
+				
+				//x
+				if (_aabbData.rect.left <= bounds.left || _aabbData.rect.width >= bounds.width)
+					newAABBPos.x = bounds.left;
+				else if (_aabbData.rect.right >= bounds.right)
+					newAABBPos.x = bounds.right - _aabbData.rect.width;
+				
+				//y
+				if (_aabbData.rect.top <= bounds.top || _aabbData.rect.height >= bounds.height)
+					newAABBPos.y = bounds.top;
+				else if (_aabbData.rect.bottom >= bounds.bottom)
+					newAABBPos.y = bounds.bottom - _aabbData.rect.height;
+				
+				var newGTPos:Point = new Point(newAABBPos.x, newAABBPos.y);
+				
+				newGTPos.x -= _aabbData.offsetX;
+				newGTPos.y -= _aabbData.offsetY;
+				
+				newGTPos.x += rotScaledOffset.x;
+				newGTPos.y += rotScaledOffset.y;
+				
+				var invGT:Point;
+				invGT = (_allowRotation) ? MathUtils.rotatePoint(new Point(newGTPos.x, newGTPos.y), -_camProxy.rotation) : new Point(newGTPos.x, newGTPos.y);
+				_camProxy.x = -invGT.x * _camProxy.scale + _camProxy.offsetX;
+				_camProxy.y = -invGT.y * _camProxy.scale + _camProxy.offsetY;
+				
+			}
+			
+			_viewRoot.scaleX = _viewRoot.scaleY = _camProxy.scale;
+			_viewRoot.rotation = _camProxy.rotation;
+			
+			_viewRoot.x = _camProxy.x;
+			_viewRoot.y = _camProxy.y;
+			
+			
+			_camPos = pointFromLocal(new Point(0, 0));
 			
 		}
 		
 		/**
-		 * local helper to rotate offset and other points - will be removed
+		 * This function renders what's happening with the camera in screen space.
+		 * This is helpful for debugging and/or creating a minimap of your level
+		 * in that same Sprite. you have to position it and scale it yourself!
+		 * @param	sprite a flash display sprite to render to.
 		 */
-		private function rotatePoint(offset:Point, p:Point, a:Number):Point
-		{
-			var c:Number = Math.cos(a);
-			var s:Number = Math.sin(a);
-			return new Point(offset.x + p.x * c + p.y * s , offset.y + -p.x * s + p.y * c);
-		}
-		
-		/**
-		 * A little function to debug the camera behavior in a "mini map" sprite
-		 * with the bounds and aabbox rendered around the rotated camera lens
-		 * @param	sprite an empty flash sprite added to stage used for debug.
-		 */
-		private function renderDebugDraw(sprite:*):void
+		public function renderDebug(sprite:flash.display.Sprite):void
 		{
 			
-			 //debug draw camera rect + bounds + aabb
-				sprite.scaleX = sprite.scaleY = 200/bounds.width;
-				sprite.x = sprite.y = 100;
+			var xo:Number, yo:Number, w:Number, h:Number;
+			
+			//create AABB of camera
+			var AABB:Object = MathUtils.createAABBData(
+			
+			_ghostTarget.x ,
+			_ghostTarget.y ,
+			
+			cameraLensWidth / _camProxy.scale,
+			cameraLensHeight / _camProxy.scale,
+			- _camProxy.rotation);
+			
+			sprite.graphics.clear();
+			
+			//draw bounds
+			sprite.graphics.lineStyle(1, 0xFF0000);
+			sprite.graphics.drawRect(
+			bounds.left,
+			bounds.top,
+			bounds.width,
+			bounds.height);
+			
+			//draw targets
+			sprite.graphics.lineStyle(20, 0xFF0000);
+			if (_target)
+				sprite.graphics.drawCircle(_target.x, _target.y, 10);
+			sprite.graphics.drawCircle(_ghostTarget.x, _ghostTarget.y, 10);
+			
+			//rotate and scale offset.
+			var rotScaledOffset:Point = MathUtils.rotatePoint(
+			new Point(offset.x / _camProxy.scale, offset.y / _camProxy.scale),
+			_camProxy.rotation);
+			
+			//offset aabb rect according to rotated and scaled camera offset
+			AABB.rect.x -= rotScaledOffset.x;
+			AABB.rect.y -= rotScaledOffset.y;
+			
+			//draw aabb
+			sprite.graphics.lineStyle(1, 0xFFFF00);
+			sprite.graphics.drawRect(AABB.rect.x, AABB.rect.y, AABB.rect.width, AABB.rect.height);
+			
+			var c:Number = Math.cos(_camProxy.rotation);
+			var s:Number = Math.sin(_camProxy.rotation);
+			
+			//draw rotated camera rect
+			
+			xo =  AABB.rect.x - AABB.offsetX;
+			yo =  AABB.rect.y - AABB.offsetY;
+			 
+			w = cameraLensWidth / _camProxy.scale;
+			h = cameraLensHeight / _camProxy.scale;
+			
+			sprite.graphics.lineStyle(1, 0x00F0FF);
+			sprite.graphics.beginFill(0x000000, 0.2);
+			sprite.graphics.moveTo(xo,
+			yo);
+			sprite.graphics.lineTo(
+			xo + (w) * c + (0) * s ,
+			yo + -(w) * s + (0) * c );
+			sprite.graphics.lineTo(
+			xo + (w) * c + (h) * s ,
+			yo + -(w) * s + (h) * c );
+			sprite.graphics.lineTo(
+			xo + (0) * c + (h) * s ,
+			yo + -(0) * s + (h) * c );
+			sprite.graphics.lineTo(xo ,
+			yo);
+			sprite.graphics.endFill();
+			
+			if (bounds && !bounds.containsRect(AABB.rect))
+			{
+				//aabb is out of bounds, draw where it should be if constrained
 				
-				//clear
-				sprite.graphics.clear();
-				sprite.graphics.lineStyle(3, 0xFF0000);
-				//bounds
-				sprite.graphics.drawRect(0, 0, bounds.width *_cameraLens.zoom, bounds.height *_cameraLens.zoom);
-				//aabb
-				sprite.graphics.lineStyle(4, 0x00FF00);
-				sprite.graphics.drawRect(
-				_aabbData.rect.x,
-				_aabbData.rect.y,
-				_aabbData.rect.width,
-				_aabbData.rect.height
-				);
+				var newAABBPos:Point = new Point(AABB.rect.x,AABB.rect.y);
 				
-				sprite.graphics.lineStyle(2, 0xFFFF00);
+				//x
+				if (AABB.rect.left <= bounds.left)
+					newAABBPos.x = bounds.left;
+				else if (AABB.rect.right >= bounds.right)
+					newAABBPos.x = bounds.right - AABB.rect.width;
 				
-				//rotated camera rect
-				var a:Number = -_cameraLens.rotation;
-				var c:Number = Math.cos(a);
-				var s:Number = Math.sin(a);
+				//y
+				if (AABB.rect.top <= bounds.top)
+					newAABBPos.y = bounds.top;
+				else if (AABB.rect.bottom >= bounds.bottom)
+					newAABBPos.y = bounds.bottom - AABB.rect.height;
 				
-				var w:Number = _cameraLens.rect.width ;
-				var h:Number = _cameraLens.rect.height ;
+				sprite.graphics.lineStyle(1, 0xFFFFFF , 0.5);
+				sprite.graphics.drawRect(newAABBPos.x, newAABBPos.y, AABB.rect.width, AABB.rect.height);
 				
-				var xo:Number =  _cameraLens.rect.x - _aabbData.offsetX ;
-				var yo:Number =  _cameraLens.rect.y - _aabbData.offsetY ;
+				//then using the new aabb position... draw the camera.
 				
-				sprite.graphics.moveTo(xo, yo);
-				sprite.graphics.lineTo(xo + (w) * c + (0) * s , yo + -(w) * s + (0) * c);
-				sprite.graphics.lineTo(xo + (w) * c + (h) * s , yo + -(w) * s + (h) * c);
-				sprite.graphics.lineTo(xo + (0) * c + (h) * s , yo + -(0) * s + (h) * c);
-				sprite.graphics.lineTo(xo, yo);
+				xo =  newAABBPos.x - AABB.offsetX;
+				yo =  newAABBPos.y - AABB.offsetY;
+				 
+				w = cameraLensWidth / _camProxy.scale;
+				h = cameraLensHeight / _camProxy.scale;
 				
-				var rotatedOffset:Point = rotatePoint(new Point(0, 0), new Point(offset.x, offset.y), -_cameraLens.rotation);
-				sprite.graphics.lineStyle(2, 0xFF00FF);
-				sprite.graphics.moveTo(xo, yo);
-				sprite.graphics.lineTo(xo + rotatedOffset.x, yo + rotatedOffset.y);
-				
-				sprite.graphics.lineStyle(0.1, 0x0000FF);
-				sprite.graphics.moveTo(0, 0);
+				sprite.graphics.lineStyle(1, 0xFFFFFF, 0.5);
+				sprite.graphics.beginFill(0xFFFFFF, 0.1);
+				sprite.graphics.moveTo(xo,
+				yo);
 				sprite.graphics.lineTo(
-				_cameraLens.rect.x - _aabbData.offsetX + rotatedOffset.x,
-				_cameraLens.rect.y - _aabbData.offsetY + rotatedOffset.y
-				);
+				xo + (w) * c + (0) * s ,
+				yo + -(w) * s + (0) * c );
+				sprite.graphics.lineTo(
+				xo + (w) * c + (h) * s ,
+				yo + -(w) * s + (h) * c );
+				sprite.graphics.lineTo(
+				xo + (0) * c + (h) * s ,
+				yo + -(0) * s + (h) * c );
+				sprite.graphics.lineTo(xo ,
+				yo);
+				sprite.graphics.endFill();
+				
+				//and so the new position of the camera :
+				
+				var newGTPos:Point = new Point(newAABBPos.x, newAABBPos.y);
+				
+				sprite.graphics.lineStyle(20, 0xFFFFFF);
+				sprite.graphics.drawCircle(newGTPos.x, newGTPos.y, 10);
+				
+				newGTPos.x -= AABB.offsetX;
+				newGTPos.y -= AABB.offsetY;
+				
+				sprite.graphics.drawCircle(newGTPos.x, newGTPos.y, 10);
+				
+				//and we already have the rotated and scaled offset so lets add it.
+				
+				newGTPos.x += rotScaledOffset.x;
+				newGTPos.y += rotScaledOffset.y;
+				
+				sprite.graphics.drawCircle(newGTPos.x, newGTPos.y, 10);
+			
+			}
+			
 		}
+		
+		/**
+		 * The idea of pointFromLocal and pointToLocal is to manually do the calculations
+		 * for globalToLocal and localToGlobal and have understandable alternatives.
+		 * 
+		 * if using globalToLocal from _viewroot inside the update function and before setting viewroot's position
+		 * it will then do globalToLocal relative to the previous location and rotation of _viewroot (as
+		 * viewroot will not be already moved, scaled and rotated.) 
+		 * so it would be one frame behind...
+		 */
+		
+		/**
+		 *  equivalent of  globalToLocal.
+		 */
+		public function pointFromLocal(p:Point):Point
+		{
+			
+			return MathUtils.rotatePoint(
+			new Point(
+			(p.x - _camProxy.x) /_camProxy.scale, 
+			(p.y - _camProxy.y) /_camProxy.scale)
+			, _camProxy.rotation);
+			
+			//return (_viewRoot as Sprite).globalToLocal(p);
+		}
+		
+		/**
+		 *  equivalent of localToGlobal
+		 */
+		public function pointToLocal(p:Point):Point
+		{
+			return (_viewRoot as starling.display.Sprite).localToGlobal(p);
+		}
+		
+		override public function get allowZoom():Boolean
+		{
+			return _allowZoom;
+		}
+		
+		override public function get allowRotation():Boolean
+		{
+			return _allowRotation;
+		}
+		
+		override public function set allowZoom(value:Boolean):void
+		{
+			if (!value)
+			{
+				_zoom = 1;
+				_camProxy.scale = 1;
+			}
+			_allowZoom = value;
+		}
+		
+		override public function set allowRotation(value:Boolean):void
+		{
+			if (!value)
+			{
+				_rotation = 0;
+				_camProxy.rotation = 0;
+			}
+			_allowRotation = value;
+		}
+		
+		override public function set restrictZoom(value:Boolean):void
+		{
+			_restrictZoom = value;
+		}
+		
+		override public function get restrictZoom():Boolean
+		{
+			return _restrictZoom;
+		}
+	
 	}
 }

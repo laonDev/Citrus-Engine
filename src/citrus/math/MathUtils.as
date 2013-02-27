@@ -39,6 +39,43 @@ package citrus.math {
 		}
 		
 		/**
+		 * Rotates a flash Point around Origin (like MathVector.rotate() )
+		 * @param	p flash.geom.Point
+		 * @param	a angle in radians
+		 * @return	returns a new rotated point.
+		 */
+		public static  function rotatePoint(p:Point, a:Number):Point
+		{
+			var c:Number = Math.cos(a);
+			var s:Number = Math.sin(a);
+			return new Point(p.x * c + p.y * s, -p.x * s + p.y * c);
+		}
+		
+		/**
+		 * Get the linear equation from two points.
+		 * @return an object, m is the slope and b a constant term.
+		 */
+		public static function lineEquation(p0:Point, p1:Point):Object{
+			
+			var a:Number = (p1.y - p0.y) / (p1.x - p0.x);
+			var b:Number = p0.y - a * p0.x;
+			
+			return {m:a, b:b}; 
+		}
+		
+		/**
+		 * Linear interpolation function
+		 * @param	a start value
+		 * @param	b end value
+		 * @param	ratio interpolation amount
+		 * @return
+		 */
+		public static function lerp(a:Number,b:Number,ratio:Number):Number
+		{
+			return a + (b - a) * ratio;
+		}
+		
+		/**
 		 * Creates the axis aligned bounding box for a rotated rectangle.
 		 * @param w width of the rotated rectangle
 		 * @param h height of the rotated rectangle

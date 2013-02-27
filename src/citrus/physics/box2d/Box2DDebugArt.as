@@ -33,11 +33,12 @@ package citrus.physics.box2d {
 		
 		public function update():void
 		{
-			_box2D.world.DrawDebugData();
+			if (_box2D.visible)
+				_box2D.world.DrawDebugData();
 		}
 		
-		public function debugMode(mode:uint):void {
-			
+		public function debugMode(flags:uint):void {
+			_debugDrawer.SetFlags(flags);
 		}
 	}
 }

@@ -23,6 +23,11 @@ package citrus.core.away3d {
 	 * state via the CitrusEngine class.</p>
 	 */
 	public class Away3DState extends ObjectContainer3D implements IState {
+		
+		/**
+		 * Get a direct references to the Citrus Engine in your State.
+		 */
+		protected var _ce:CitrusEngine;
 
 		private var _objects:Vector.<CitrusObject> = new Vector.<CitrusObject>();
 		private var _poolObjects:Vector.<PoolObject> = new Vector.<PoolObject>();
@@ -42,7 +47,8 @@ package citrus.core.away3d {
 		private var _accumulator:Number = 0;		
 
 		public function Away3DState() {
-
+			
+			_ce = CitrusEngine.getInstance();
 		}
 
 		/**
@@ -85,13 +91,13 @@ package citrus.core.away3d {
 		public function initialize():void {
 
 			_view = createView();
-			_input = CitrusEngine.getInstance().input;
+			_input = _ce.input;
 		}
 
 		/**
 		 * This method calls update on all the CitrusObjects that are attached to this state.
 		 * The update method also checks for CitrusObjects that are ready to be destroyed and kills them.
-		 * Finally, this method updates the Input and View managers. 
+		 * Finally, this method updates the View manager. 
 		 */
 		public function update(timeDelta:Number):void {
 
@@ -150,9 +156,6 @@ package citrus.core.away3d {
 			
 			for each (var poolObject:PoolObject in _poolObjects)
 				poolObject.updatePhysics(timeDelta);
-
-			// Update the input object
-			_input.update();
 
 			// Update the state's view
 			_view.update();
@@ -250,6 +253,24 @@ package citrus.core.away3d {
 
 			return null;
 		}
+		
+		/**
+		 * This returns a vector of all objects of a particular name. This is useful for adding an event handler
+		 * to objects that aren't similar but have the same name. For instance, you can track the collection of 
+		 * coins plus enemies that you've named exactly the same. Then you'd loop through the returned vector to change properties or whatever you want.
+		 * @param name The name property of the object you want to get a reference to.
+		 */
+		public function getObjectsByName(name:String):Vector.<CitrusObject> {
+
+			var objects:Vector.<CitrusObject> = new Vector.<CitrusObject>();
+
+			for each (var object:CitrusObject in _objects) {
+				if (object.name == name)
+					objects.push(object);
+			}
+
+			return objects;
+		}
 
 		/**
 		 * Returns the first instance of a CitrusObject that is of the class that you pass in. 
@@ -267,9 +288,10 @@ package citrus.core.away3d {
 		}
 
 		/**
-		 * This returns an array of all objects of a particular type. This is useful for adding an event handler
+		 * This returns a vector of all objects of a particular type. This is useful for adding an event handler
 		 * to all similar objects. For instance, if you want to track the collection of coins, you can get all objects
-		 * of type "Coin" via this method. Then you'd loop through the returned array to add your listener to the coins' event. 
+		 * of type "Coin" via this method. Then you'd loop through the returned array to add your listener to the coins' event.
+		 * @param type The class of the object you want to get a reference to.
 		 */
 		public function getObjectsByType(type:Class):Vector.<CitrusObject> {
 
@@ -282,6 +304,35 @@ package citrus.core.away3d {
 			}
 
 			return objects;
+		}
+		
+		/**
+		 * Destroy all the objects added to the State and not already killed.
+		 * @param except CitrusObjects you want to save.
+		 */
+		public function killAllObjects(...except):void {
+			
+			for each (var objectToKill:CitrusObject in _objects) {
+				
+				objectToKill.kill = true;
+				
+				for each (var objectToPreserve:CitrusObject in except) {
+					
+					if (objectToKill == objectToPreserve) {
+						
+						objectToPreserve.kill = false;
+						except.splice(except.indexOf(objectToPreserve), 1);
+						break;
+					}
+				}				
+			}
+		}
+		
+		/**
+		 * Contains all the objects added to the State and not killed.
+		 */
+		public function get objects():Vector.<CitrusObject> {
+			return _objects;
 		}
 
 		/**

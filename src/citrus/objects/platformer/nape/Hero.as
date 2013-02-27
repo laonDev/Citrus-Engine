@@ -126,9 +126,10 @@ package citrus.objects.platformer.nape {
 		protected var _enemyClass:Class = Enemy;
 		protected var _onGround:Boolean = false;
 		protected var _springOffEnemy:Number = -1;
-		protected var _hurtTimeoutID:Number;
+		protected var _hurtTimeoutID:uint;
 		protected var _hurt:Boolean = false;
 		protected var _dynamicFriction:Number = 0.77;
+		protected var _staticFriction:Number = 1.2;
 		protected var _playerMovingHero:Boolean = false;
 		protected var _controlsEnabled:Boolean = true;
 		protected var _ducking:Boolean = false;
@@ -172,8 +173,10 @@ package citrus.objects.platformer.nape {
 		public function set controlsEnabled(value:Boolean):void {
 			_controlsEnabled = value;
 
-			 if (!_controlsEnabled)
-			 	_material.dynamicFriction = _dynamicFriction;
+			 if (!_controlsEnabled) {
+				_material.dynamicFriction = _dynamicFriction;
+				_material.staticFriction = _staticFriction;
+			 }
 		}
 
 		/**
@@ -202,16 +205,30 @@ package citrus.objects.platformer.nape {
 		
 		/**
 		 * This is the amount of friction that the hero will have. Its value is multiplied against the
-		 * friction value of other physics objects.
+		 * friction value of other dynamic physics objects.
 		 */	
 		public function get dynamicFriction():Number {
 			return _dynamicFriction;
 		}
 		
-		[Inspectable(defaultValue="1.7")]
+		[Inspectable(defaultValue="0.77")]
 		public function set dynamicFriction(value:Number):void {
 			
 			_material.dynamicFriction = _dynamicFriction = value;
+		}
+		
+		/**
+		 * This is the amount of friction that the hero will have. Its value is multiplied against the
+		 * friction value of other static physics objects.
+		 */	
+		public function get staticFriction():Number {
+			return _staticFriction;
+		}
+		
+		[Inspectable(defaultValue="1.2")]
+		public function set staticFriction(value:Number):void {
+			
+			_material.staticFriction = _staticFriction = value;
 		}
 		
 		override public function update(timeDelta:Number):void
@@ -245,12 +262,14 @@ package citrus.objects.platformer.nape {
 				{
 					_playerMovingHero = true;
 					_material.dynamicFriction = 0; //Take away friction so he can accelerate.
+					_material.staticFriction = 0;
 				}
 				//Player just stopped moving the hero this tick.
 				else if (!moveKeyPressed && _playerMovingHero)
 				{
 					_playerMovingHero = false;
 					_material.dynamicFriction = _dynamicFriction; //Add friction so that he stops running
+					_material.staticFriction = _staticFriction;
 				}
 				
 				if (_onGround && _ce.input.justDid("jump", inputChannel) && !_ducking)
@@ -320,7 +339,7 @@ package citrus.objects.platformer.nape {
 		override protected function createMaterial():void {
 			
 			super.createMaterial();
-			
+			_material.staticFriction = 0;
 			_material.elasticity = 0;
 		}
 		
@@ -358,15 +377,17 @@ package citrus.objects.platformer.nape {
 				
 				var collisionAngle:Number = callback.arbiters.at(0).collisionArbiter.normal.angle * 180 / Math.PI;
 				
-				if ((collisionAngle > 45 && collisionAngle < 135) || (collisionAngle > -30 && collisionAngle < 10 && collisionAngle != 0) || collisionAngle == -90)
+				if ((collisionAngle > 45 && collisionAngle < 135) || (collisionAngle > -30 && collisionAngle < 10) || collisionAngle == -90)
 				{
-					//we don't want the Hero to be set up as onGround if it touches a cloud.
-					if (collider is Platform && (collider as Platform).oneWay && collisionAngle == -90)
-						return;
-					
-					_groundContacts.push(collider.body);
-					_onGround = true;
-					//updateCombinedGroundAngle();
+					if (collisionAngle > 1 || collisionAngle < -1) {
+						//we don't want the Hero to be set up as onGround if it touches a cloud.
+						if (collider is Platform && (collider as Platform).oneWay && collisionAngle == -90)
+							return;
+						
+						_groundContacts.push(collider.body);
+						_onGround = true;
+						//updateCombinedGroundAngle();
+					}
 				}
 			}
 		}

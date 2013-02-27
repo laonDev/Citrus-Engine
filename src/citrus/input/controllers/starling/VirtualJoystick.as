@@ -21,8 +21,8 @@ package citrus.input.controllers.starling {
 		public var graphic:starling.display.Sprite; //main Sprite container.
 		
 		//separate joystick elements
-		protected var back:Image;
-		protected var knob:Image;
+		public var back:Image;
+		public var knob:Image;
 		
 		public function VirtualJoystick(name:String, params:Object = null)
 		{
@@ -195,12 +195,17 @@ package citrus.input.controllers.starling {
 		
 		override public function destroy():void
 		{
-			back.dispose();
-			knob.dispose();
-			graphic.dispose();
 			
 			_xAxisActions = null;
 			_yAxisActions = null;
+			
+			graphic.removeChildren();
+			
+			Starling.current.stage.removeChild(graphic);
+			
+			back.dispose();
+			knob.dispose();
+			graphic.dispose();
 			
 			super.destroy();
 		}
